@@ -13,6 +13,7 @@ import com.hibegin.http.server.impl.HttpRequestDecoderImpl;
 import com.hibegin.http.server.impl.ServerContext;
 import com.hibegin.http.server.impl.SimpleHttpResponse;
 import com.hibegin.http.server.util.FrameUtil;
+import com.hibegin.http.server.util.ServerInfo;
 import com.hibegin.http.server.util.StatusCodeUtil;
 
 import java.io.ByteArrayOutputStream;
@@ -21,14 +22,8 @@ import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
-import java.util.AbstractMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -37,7 +32,7 @@ public class HttpDecodeThread extends Thread {
     private static final Logger LOGGER = LoggerUtil.getLogger(HttpDecodeThread.class);
 
     private ServerContext serverContext;
-    private BlockingQueue<Map.Entry<SocketChannel, Map.Entry<SelectionKey, byte[]>>> channelBlockingQueue = new LinkedBlockingQueue<>();
+    private Map<SocketChannel, BlockingQueue<Map.Entry<SelectionKey, byte[]>>> socketChannelBlockingQueueConcurrentHashMap = new ConcurrentHashMap<>();
     private SimpleWebServer simpleWebServer;
     private RequestConfig requestConfig;
     private ResponseConfig responseConfig;
@@ -46,6 +41,7 @@ public class HttpDecodeThread extends Thread {
     private BlockingQueue<HttpRequestHandlerThread> httpRequestHandlerThreadBlockingQueue = new LinkedBlockingQueue<>();
 
     public HttpDecodeThread(ServerContext serverContext, SimpleWebServer simpleWebServer, RequestConfig requestConfig, ResponseConfig responseConfig, ServerConfig serverConfig) {
+        super(ServerInfo.getName().toLowerCase() + "-http-decode-thread");
         this.serverContext = serverContext;
         this.simpleWebServer = simpleWebServer;
         this.requestConfig = requestConfig;
@@ -56,27 +52,38 @@ public class HttpDecodeThread extends Thread {
     @Override
     public void run() {
         while (true) {
-            try {
-                final Map.Entry<SocketChannel, Map.Entry<SelectionKey, byte[]>> entry = channelBlockingQueue.poll(10, TimeUnit.MICROSECONDS);
-                if (entry != null) {
-                    final SocketChannel channel = entry.getKey();
-                    final SelectionKey key = entry.getValue().getKey();
+            List<SocketChannel> needRemoveChannel = new CopyOnWriteArrayList<>();
+            for (final Map.Entry<SocketChannel, BlockingQueue<Map.Entry<SelectionKey, byte[]>>> entry : socketChannelBlockingQueueConcurrentHashMap.entrySet()) {
+                final SocketChannel channel = entry.getKey();
+                if (entry.getValue().isEmpty()) {
+                    needRemoveChannel.add(channel);
+                } else {
                     if (!workingChannel.contains(channel)) {
                         workingChannel.add(channel);
                         Thread thread = new Thread() {
                             @Override
                             public void run() {
-                                if (channel != null && channel.isOpen()) {
-                                    setName("http-decode-" + Thread.currentThread().getId());
+                                BlockingQueue<Map.Entry<SelectionKey, byte[]>> blockingQueue = entry.getValue();
+                                while (!blockingQueue.isEmpty()) {
                                     Map.Entry<HttpRequestDeCoder, HttpResponse> codecEntry = serverContext.getHttpDeCoderMap().get(channel.socket());
-                                    if (!channel.socket().isClosed()) {
+                                    SelectionKey key = null;
+                                    Map.Entry<SelectionKey, byte[]> selectionKeyEntry = null;
+                                    try {
+                                        selectionKeyEntry = blockingQueue.poll(10, TimeUnit.MICROSECONDS);
+                                        key = selectionKeyEntry.getKey();
+                                    } catch (InterruptedException e) {
+                                        LOGGER.log(Level.SEVERE, "", e);
+                                    }
+                                    if (key != null) {
                                         try {
-                                            byte[] bytes = entry.getValue().getValue();
-                                            if (bytes.length > 0 && codecEntry.getKey().doDecode(bytes)) {
-                                                if (serverConfig.isSupportHttp2()) {
-                                                    renderUpgradeHttp2Response(codecEntry.getValue());
-                                                } else {
-                                                    httpRequestHandlerThreadBlockingQueue.add(new HttpRequestHandlerThread(codecEntry.getKey().getRequest(), codecEntry.getValue(), serverContext));
+                                            if (!channel.socket().isClosed()) {
+                                                byte[] bytes = selectionKeyEntry.getValue();
+                                                if (bytes.length > 0 && codecEntry.getKey().doDecode(bytes)) {
+                                                    if (serverConfig.isSupportHttp2()) {
+                                                        renderUpgradeHttp2Response(codecEntry.getValue());
+                                                    } else {
+                                                        httpRequestHandlerThreadBlockingQueue.add(new HttpRequestHandlerThread(codecEntry.getKey().getRequest(), codecEntry.getValue(), serverContext));
+                                                    }
                                                 }
                                             }
                                         } catch (EOFException | ClosedChannelException e) {
@@ -92,15 +99,20 @@ public class HttpDecodeThread extends Thread {
                                             LOGGER.log(Level.SEVERE, "", e);
                                         }
                                     }
+                                    workingChannel.remove(channel);
                                 }
-                                workingChannel.remove(channel);
                             }
                         };
                         serverConfig.getDecodeExecutor().execute(thread);
-                    } else {
-                        channelBlockingQueue.add(entry);
                     }
                 }
+            }
+            for (SocketChannel socketChannel : needRemoveChannel) {
+                socketChannelBlockingQueueConcurrentHashMap.remove(socketChannel);
+                workingChannel.remove(socketChannel);
+            }
+            try {
+                Thread.sleep(10);
             } catch (InterruptedException e) {
                 LOGGER.log(Level.SEVERE, "", e);
             }
@@ -118,7 +130,6 @@ public class HttpDecodeThread extends Thread {
 
     public void addTask(SocketChannel channel, SelectionKey key) {
         if (channel != null && channel.isOpen()) {
-            setName("http-decode-" + Thread.currentThread().getId());
             Map.Entry<HttpRequestDeCoder, HttpResponse> codecEntry = serverContext.getHttpDeCoderMap().get(channel.socket());
             ReadWriteSelectorHandler handler = null;
             if (codecEntry == null) {
@@ -137,9 +148,12 @@ public class HttpDecodeThread extends Thread {
                 try {
                     byte[] bytes = handler.handleRead().array();
                     if (bytes.length > 0) {
-                        Map.Entry<SelectionKey, byte[]> value = new AbstractMap.SimpleEntry<>(key, bytes);
-                        Map.Entry<SocketChannel, Map.Entry<SelectionKey, byte[]>> entry = new AbstractMap.SimpleEntry<>(channel, value);
-                        channelBlockingQueue.add(entry);
+                        BlockingQueue<Map.Entry<SelectionKey, byte[]>> entryBlockingQueue = socketChannelBlockingQueueConcurrentHashMap.get(channel);
+                        if (entryBlockingQueue == null) {
+                            entryBlockingQueue = new LinkedBlockingQueue<>();
+                            socketChannelBlockingQueueConcurrentHashMap.put(channel, entryBlockingQueue);
+                        }
+                        entryBlockingQueue.add(new AbstractMap.SimpleEntry<>(key, bytes));
                     }
                 } catch (EOFException e) {
                     //ignore

@@ -10,12 +10,15 @@ import com.hibegin.http.server.impl.ServerContext;
 import com.hibegin.http.server.impl.SimpleHttpRequest;
 
 import java.net.Socket;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class HttpRequestHandlerThread extends Thread {
 
     private static final Logger LOGGER = LoggerUtil.getLogger(HttpRequestHandlerThread.class);
+    private static AtomicLong atomicLong = new AtomicLong();
 
     private HttpRequest request;
     private ServerContext serverContext;
@@ -25,6 +28,7 @@ public class HttpRequestHandlerThread extends Thread {
     private volatile boolean interrupted;
 
     public HttpRequestHandlerThread(HttpRequest request, HttpResponse response, ServerContext serverContext) {
+        super("simplewebserver-http-nio-" + atomicLong.getAndIncrement());
         this.serverContext = serverContext;
         this.request = request;
         this.response = response;

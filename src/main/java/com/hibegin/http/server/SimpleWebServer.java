@@ -98,7 +98,7 @@ public class SimpleWebServer implements ISocketServer {
         httpDecodeThread.start();
         execHttpRequestThread();
 
-        LOGGER.info(ServerInfo.getName() + " is run versionStr -> " + ServerInfo.getVersion());
+        LOGGER.info(ServerInfo.getName() + " is run version -> " + ServerInfo.getVersion());
         if (serverContext.getServerConfig().getInterceptors().contains(MethodInterceptor.class)) {
             LOGGER.info(serverConfig.getRouter().toString());
         }
@@ -162,7 +162,7 @@ public class SimpleWebServer implements ISocketServer {
 
 
     private void execHttpRequestThread() {
-        new Thread() {
+        new Thread(ServerInfo.getName().toLowerCase() + "-http-request-exec-thread") {
             @Override
             public void run() {
                 while (true) {
