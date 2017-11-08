@@ -32,7 +32,7 @@ public class Cookie {
             if (kvStr.contains("=")) {
                 Cookie cookie = new Cookie();
                 cookie.setName(kvStr.split("=")[0]);
-                cookie.setValue(kvStr.substring(kvStr.indexOf("="), kvStr.length()));
+                cookie.setValue(kvStr.substring(kvStr.indexOf("=") + 1, kvStr.length()));
                 cookieList.add(cookie);
             }
         }
