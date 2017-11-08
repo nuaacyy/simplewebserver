@@ -1,7 +1,9 @@
 package com.hibegin.http.server.web.cookie;
 
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 public class Cookie {
 
@@ -24,23 +26,31 @@ public class Cookie {
 
     public static Cookie[] saxToCookie(String cookieStr) {
         String[] kvArr = cookieStr.split(";");
-        Cookie[] cookies = new Cookie[kvArr.length];
-        for (int i = 0; i < kvArr.length; i++) {
-            String[] kv = kvArr[i].trim().split("=");
-            Cookie cookie = new Cookie();
-            cookie.setName(kv[0]);
-            cookie.setValue(kv[1]);
-            cookies[i] = cookie;
+        List<Cookie> cookieList = new ArrayList<>();
+        for (String aKvArr : kvArr) {
+            String kvStr = aKvArr.trim();
+            String[] kv = kvStr.split("=");
+            if (kv.length > 0) {
+                Cookie cookie = new Cookie();
+                cookie.setName(kv[0]);
+                if (kv.length > 1) {
+                    cookie.setValue(kvStr.substring(kvStr.indexOf("="), kvStr.length()));
+                } else {
+                    cookie.setValue("");
+                }
+                cookieList.add(cookie);
+            }
         }
-        return cookies;
+        return cookieList.toArray(new Cookie[cookieList.size()]);
     }
 
     public static String getJSessionId(String cookieStr) {
         String[] kvArr = cookieStr.split(";");
         for (String aKvArr : kvArr) {
-            String[] kv = aKvArr.trim().split("=");
-            if (JSESSIONID.equals(kv[0])) {
-                return (kv[1]);
+            String kvStr = aKvArr.trim();
+            String[] kv = kvStr.split("=");
+            if (JSESSIONID.equals(kv[0]) && kv.length > 1) {
+                return kvStr.substring(kvStr.indexOf("="), kvStr.length());
             }
         }
         return null;
