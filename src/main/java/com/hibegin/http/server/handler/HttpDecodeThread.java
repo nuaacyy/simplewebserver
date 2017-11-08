@@ -69,7 +69,7 @@ public class HttpDecodeThread extends Thread {
                                     SelectionKey key = null;
                                     Map.Entry<SelectionKey, byte[]> selectionKeyEntry = null;
                                     try {
-                                        selectionKeyEntry = blockingQueue.poll(10, TimeUnit.MICROSECONDS);
+                                        selectionKeyEntry = blockingQueue.poll(10, TimeUnit.MILLISECONDS);
                                         key = selectionKeyEntry.getKey();
                                     } catch (InterruptedException e) {
                                         LOGGER.log(Level.SEVERE, "", e);
@@ -121,7 +121,7 @@ public class HttpDecodeThread extends Thread {
 
     public HttpRequestHandlerThread getHttpRequestHandlerThread() {
         try {
-            return httpRequestHandlerThreadBlockingQueue.poll(10, TimeUnit.MICROSECONDS);
+            return httpRequestHandlerThreadBlockingQueue.poll(10, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             LOGGER.log(Level.SEVERE, "", e);
         }
