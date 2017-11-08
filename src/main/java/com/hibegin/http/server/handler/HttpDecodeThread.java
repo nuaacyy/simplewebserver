@@ -19,6 +19,7 @@ import com.hibegin.http.server.util.StatusCodeUtil;
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.net.SocketException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
@@ -65,7 +66,6 @@ public class HttpDecodeThread extends Thread {
                             public void run() {
                                 BlockingQueue<Map.Entry<SelectionKey, byte[]>> blockingQueue = entry.getValue();
                                 while (!blockingQueue.isEmpty()) {
-                                    Map.Entry<HttpRequestDeCoder, HttpResponse> codecEntry = serverContext.getHttpDeCoderMap().get(channel.socket());
                                     SelectionKey key = null;
                                     Map.Entry<SelectionKey, byte[]> selectionKeyEntry = null;
                                     try {
@@ -74,7 +74,8 @@ public class HttpDecodeThread extends Thread {
                                     } catch (InterruptedException e) {
                                         LOGGER.log(Level.SEVERE, "", e);
                                     }
-                                    if (key != null) {
+                                    Map.Entry<HttpRequestDeCoder, HttpResponse> codecEntry = serverContext.getHttpDeCoderMap().get(channel.socket());
+                                    if (codecEntry != null && key != null) {
                                         try {
                                             if (!channel.socket().isClosed()) {
                                                 byte[] bytes = selectionKeyEntry.getValue();
@@ -155,7 +156,7 @@ public class HttpDecodeThread extends Thread {
                         }
                         entryBlockingQueue.add(new AbstractMap.SimpleEntry<>(key, bytes));
                     }
-                } catch (EOFException e) {
+                } catch (EOFException | SocketException e) {
                     //ignore
                 } catch (Exception e) {
                     LOGGER.log(Level.SEVERE, "", e);
