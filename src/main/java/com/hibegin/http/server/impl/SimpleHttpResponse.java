@@ -88,7 +88,7 @@ public class SimpleHttpResponse implements HttpResponse {
             ByteBuffer byteBuffer = ByteBuffer.allocate(bytes.length);
             byteBuffer.put(bytes);
             request.getHandler().handleWrite(byteBuffer);
-            if (close) {
+            if (close || "close".equalsIgnoreCase(getHeader().get("Connection"))) {
                 request.getHandler().close();
             }
         } catch (IOException e) {
@@ -107,7 +107,7 @@ public class SimpleHttpResponse implements HttpResponse {
 
 
     private void send(ByteArrayOutputStream byteArrayOutputStream) {
-        send(byteArrayOutputStream, true);
+        send(byteArrayOutputStream, "close".equalsIgnoreCase(getHeader().get("Connection")));
     }
 
     @Override
