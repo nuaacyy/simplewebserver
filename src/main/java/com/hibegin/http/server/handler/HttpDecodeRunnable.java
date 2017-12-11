@@ -66,12 +66,8 @@ public class HttpDecodeRunnable implements Runnable {
                             while (!blockingQueue.isEmpty()) {
                                 SelectionKey key = null;
                                 Map.Entry<SelectionKey, byte[]> selectionKeyEntry = null;
-                                try {
-                                    selectionKeyEntry = blockingQueue.poll(1, TimeUnit.MILLISECONDS);
-                                    key = selectionKeyEntry.getKey();
-                                } catch (InterruptedException e) {
-                                    LOGGER.log(Level.SEVERE, "", e);
-                                }
+                                selectionKeyEntry = blockingQueue.poll();
+                                key = selectionKeyEntry.getKey();
                                 Map.Entry<HttpRequestDeCoder, HttpResponse> codecEntry = serverContext.getHttpDeCoderMap().get(channel.socket());
                                 if (codecEntry != null && key != null) {
                                     try {
@@ -113,12 +109,7 @@ public class HttpDecodeRunnable implements Runnable {
     }
 
     public HttpRequestHandlerThread getHttpRequestHandlerThread() {
-        try {
-            return httpRequestHandlerThreadBlockingQueue.poll(1, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            LOGGER.log(Level.SEVERE, "", e);
-        }
-        return null;
+        return httpRequestHandlerThreadBlockingQueue.poll();
     }
 
     public void addTask(SocketChannel channel, SelectionKey key) {

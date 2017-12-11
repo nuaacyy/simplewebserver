@@ -67,8 +67,8 @@ public class MethodInterceptor implements Interceptor {
                 boolean haveDefaultConstructor = false;
                 for (Constructor constructor : constructors) {
                     if (constructor.getParameterTypes().length == 2) {
-                        if (constructor.getParameterTypes()[0].getSimpleName().equals(HttpRequest.class.getName()) &&
-                                constructor.getParameterTypes()[1].getSimpleName().equals(HttpResponse.class.getName())) {
+                        if (constructor.getParameterTypes()[0].getName().equals(HttpRequest.class.getName()) &&
+                                constructor.getParameterTypes()[1].getName().equals(HttpResponse.class.getName())) {
                             controller = (Controller) constructor.newInstance(request, response);
                         }
                     }
