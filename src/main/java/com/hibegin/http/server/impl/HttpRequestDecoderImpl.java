@@ -43,6 +43,9 @@ public class HttpRequestDecoderImpl implements HttpRequestDeCoder {
     @Override
     public boolean doDecode(byte[] data) throws Exception {
         if (headerHandled && request.getMethod() == HttpMethod.CONNECT) {
+            if (request.requestBodyBuffer == null) {
+                request.requestBodyBuffer = ByteBuffer.allocate(0);
+            }
             byte[] oldBytes = request.requestBodyBuffer.array();
             request.requestBodyBuffer = ByteBuffer.allocate(oldBytes.length + data.length);
             request.requestBodyBuffer.put(oldBytes);
