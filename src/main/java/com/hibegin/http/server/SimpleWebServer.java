@@ -14,12 +14,10 @@ import com.hibegin.http.server.util.PathUtil;
 import com.hibegin.http.server.util.ServerInfo;
 import com.hibegin.http.server.web.MethodInterceptor;
 
-import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.SocketException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -185,7 +183,7 @@ public class SimpleWebServer implements ISocketServer {
                             HttpRequestHandlerThread oldHttpRequestHandlerThread = checkRequestRunnable.getChannelHttpRequestHandlerThreadMap().get(socket);
                             //清除老的请求
                             if (oldHttpRequestHandlerThread != null) {
-                                oldHttpRequestHandlerThread.interrupt();
+                                oldHttpRequestHandlerThread.close();
                             }
                             checkRequestRunnable.getChannelHttpRequestHandlerThreadMap().put(socket, requestHandlerThread);
                             serverConfig.getRequestExecutor().execute(requestHandlerThread);

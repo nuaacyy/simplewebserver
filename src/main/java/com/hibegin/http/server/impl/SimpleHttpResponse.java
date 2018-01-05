@@ -89,9 +89,7 @@ public class SimpleHttpResponse implements HttpResponse {
     private void send(byte[] bytes, boolean close) {
         try {
             if (bytes.length > 0) {
-                ByteBuffer byteBuffer = ByteBuffer.allocate(bytes.length);
-                byteBuffer.put(bytes);
-                request.getHandler().handleWrite(byteBuffer);
+                request.getHandler().handleWrite(ByteBuffer.wrap(bytes));
             }
             if (close) {
                 request.getHandler().close();
@@ -147,7 +145,7 @@ public class SimpleHttpResponse implements HttpResponse {
 
         header.put("Server", SERVER_INFO);
         if (!getHeader().containsKey("Connection")) {
-            boolean keepAlive = request.getHeader("Connection") != null && "keep-alive".equalsIgnoreCase(request.getHeader("Connection"));
+            boolean keepAlive = request.getHeader("Connection") == null || "close".equalsIgnoreCase(request.getHeader("Connection"));
             if (keepAlive) {
                 getHeader().put("Connection", "keep-alive");
             } else {
