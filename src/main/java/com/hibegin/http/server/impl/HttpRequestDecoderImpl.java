@@ -41,7 +41,7 @@ public class HttpRequestDecoderImpl implements HttpRequestDeCoder {
     }
 
     @Override
-    public boolean doDecode(byte[] data) throws Exception {
+    public Map.Entry<Boolean, byte[]> doDecode(byte[] data) throws Exception {
         if (headerHandled && request.getMethod() == HttpMethod.CONNECT) {
             if (request.requestBodyBuffer == null) {
                 request.requestBodyBuffer = ByteBuffer.allocate(0);
@@ -50,7 +50,7 @@ public class HttpRequestDecoderImpl implements HttpRequestDeCoder {
             request.requestBodyBuffer = ByteBuffer.allocate(oldBytes.length + data.length);
             request.requestBodyBuffer.put(oldBytes);
             request.requestBodyBuffer.put(data);
-            return true;
+            return new AbstractMap.SimpleEntry<>(true, new byte[]{});
         } else {
             // 存在2种情况
             // 1,提交的数据一次性读取完成。
@@ -72,6 +72,9 @@ public class HttpRequestDecoderImpl implements HttpRequestDeCoder {
                     flag = parseHttpRequestBody(requestBody);
                     //处理完成，清空byte[]
                     headerBytes = new byte[]{};
+                    if (isNeedEmptyRequestBody()) {
+                        return new AbstractMap.SimpleEntry<>(flag, requestBody);
+                    }
                 } else {
                     parseHttpMethod();
                 }
@@ -82,7 +85,7 @@ public class HttpRequestDecoderImpl implements HttpRequestDeCoder {
                     dealRequestBodyData();
                 }
             }
-            return flag;
+            return new AbstractMap.SimpleEntry<>(flag, new byte[]{});
         }
     }
 
@@ -98,7 +101,7 @@ public class HttpRequestDecoderImpl implements HttpRequestDeCoder {
                 }
             }
             if (!check) {
-                throw new UnSupportMethodException("");
+                throw new UnSupportMethodException(requestLine);
             }
         }
     }
