@@ -14,12 +14,10 @@ import com.hibegin.http.server.util.PathUtil;
 import com.hibegin.http.server.util.ServerInfo;
 import com.hibegin.http.server.web.MethodInterceptor;
 
-import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.SocketException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;

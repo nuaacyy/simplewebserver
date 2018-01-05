@@ -85,7 +85,6 @@ public class HttpRequestHandlerThread extends Thread {
 
     private void close() {
         interrupted = true;
-        //LOGGER.info(request.gestMethod() + ": " + request.getUrl() + " " + (System.currentTimeMillis() - request.getCreateTime()) + " ms");
         if (getSocket().isClosed()) {
             request.getServerContext().getHttpDeCoderMap().remove(getSocket());
         }
@@ -95,5 +94,6 @@ public class HttpRequestHandlerThread extends Thread {
         for (HttpRequestListener requestListener : request.getServerContext().getServerConfig().getHttpRequestListenerList()) {
             requestListener.destroy(getRequest(), getResponse());
         }
+        //LOGGER.info(request.getMethod() + ": " + request.getUrl() + " " + (System.currentTimeMillis() - request.getCreateTime()) + " ms");
     }
 }
