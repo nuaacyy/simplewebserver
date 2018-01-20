@@ -1,5 +1,6 @@
 package com.hibegin.http.server.handler;
 
+import com.hibegin.common.util.EnvKit;
 import com.hibegin.common.util.LoggerUtil;
 import com.hibegin.http.server.api.HttpRequestDeCoder;
 import com.hibegin.http.server.api.HttpResponse;
@@ -9,6 +10,7 @@ import java.net.Socket;
 import java.util.Date;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -21,21 +23,38 @@ public class CheckRequestRunnable implements Runnable {
 
     private Map<Socket, HttpRequestHandlerThread> channelHttpRequestHandlerThreadMap;
     private ServerContext serverContext;
+    private Thread thread;
 
-    public CheckRequestRunnable(int requestTimeout, ServerContext serverContext, Map<Socket, HttpRequestHandlerThread> channelHttpRequestHandlerThreadMap) {
-        this.channelHttpRequestHandlerThreadMap = channelHttpRequestHandlerThreadMap;
-        this.requestTimeout = requestTimeout;
+    public CheckRequestRunnable(ServerContext serverContext) {
+        this.channelHttpRequestHandlerThreadMap = new ConcurrentHashMap<>();
+        this.requestTimeout = serverContext.getServerConfig().getTimeOut();
         this.serverContext = serverContext;
     }
+
 
     @Override
     public void run() {
         lastAccessDate = new Date();
-        try {
-            clearRequestListener(getClosedRequestSocketSet());
-            clearRequestDecode(getClosedDecodedSocketSet());
-        } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "e", e);
+        if (EnvKit.isAndroid()) {
+            if (thread != null) {
+                thread.interrupt();
+            }
+        }
+        thread = new Thread() {
+            @Override
+            public void run() {
+                try {
+                    clearRequestListener(getClosedRequestSocketSet());
+                    clearRequestDecode(getClosedDecodedSocketSet());
+                } catch (Exception e) {
+                    LOGGER.log(Level.SEVERE, "e", e);
+                }
+            }
+        };
+        if (EnvKit.isAndroid()) {
+            thread.start();
+        } else {
+            thread.run();
         }
     }
 
@@ -52,7 +71,7 @@ public class CheckRequestRunnable implements Runnable {
         Set<Socket> socketChannels = new CopyOnWriteArraySet<>();
         for (Map.Entry<Socket, HttpRequestHandlerThread> entry : channelHttpRequestHandlerThreadMap.entrySet()) {
             Socket socket = entry.getKey();
-            if (socket.isClosed() || !socket.isConnected()) {
+            if (socket.isClosed()) {
                 socketChannels.add(entry.getKey());
             }
             if (requestTimeout > 0) {
